@@ -4,6 +4,7 @@ import random
 import geopandas as gpd
 from operator import itemgetter
 from shapely.geometry import Polygon
+from scipy.spatial import distance
 
 
 # 按照w,h对box进行网格划分 #################
@@ -84,18 +85,18 @@ def get_border(nodes):
         angle_r_all = sorted(angle_r_all, key=itemgetter(0))  # 按left升序排序
         if angle_r_all[0][0] >= -np.pi / 2:
             border_nodes.append(node)
-            nodes[index]['type'] = 'B'
+            node['type'] = 'B'
             continue
         for i in range(0, len(angle_r_all)):
             if angle_r_all[i][0] > right_max:  # 当左端值不与右端当前最大值发生重合时，判为边界点
                 border_nodes.append(node)
-                nodes[index]['type'] = 'B'
+                node['type'] = 'B'
                 break
             if angle_r_all[i][1] > right_max:  # 如果此右端点大于右端当前最大值，进行迭代
                 right_max = angle_r_all[i][1]
         if right_max < np.pi * 3 / 2:
             border_nodes.append(node)
-            nodes[index]['type'] = 'B'
+            node['type'] = 'B'
     return border_nodes, nodes
 
 
@@ -125,6 +126,15 @@ def draw_nodes(nodes):  # 画所有点
             plt.plot(i['x'], i['y'], 'c.')
         else:
             plt.plot(i['x'], i['y'], 'k.')
+
+def draw_line(paths):
+    for index, path in enumerate(paths):
+        x = []
+        y = []
+        for node in path:
+            x.append(node[0])
+            y.append(node[1])
+        plt.plot(x, y, color='c')
 
 
 def get_move_2016(s, blocks, mob_n):  # blocks 按区域划分的二维点集，mob_n区域中的可移动节点数
@@ -160,10 +170,42 @@ def get_d_2018(border):   # blocks 按区域划分的二维点集
     return border, d_all
 
 
-def get_min_path_2018(blocks):
-    for nodes in blocks:
-        for node in nodes:
-            return 0
+def get_min_path_2018(border):
+    b1 = []
+    b2 = border[:]
+    conn_path = []
+    conn_block = []
+    conn_id = 0
+    while True:
+        for node in border:
+            if node['block'] == conn_id:
+                b1.append(node)
+                b2.remove(node)
+                if len(b2) == 0:
+                    return conn_block, conn_path
+            else:
+                pass
+        data = get_min_path(b1, b2)
+        conn_path.append(data[1])
+        conn_block.append(data[0])
+        conn_id = data[0][1]
+    return 0
+
+
+def get_min_path(b1, b2):  # 当前要判断的点集
+    block= []
+    path = [[0,0],[0,0]]
+    d_min = 100000
+    for node in b1:
+        x = node['x']
+        y = node['y']
+        for i in b2:
+            d = (i['x'] - x) ** 2 + (i['y'] - y) ** 2
+            if d < d_min:
+                d_min = d
+                block = [node['block'],i['block']]
+                path = [[i['x'], i['y']],[x,y]]
+    return block, path
 
 
 # PARAMETERS ##############################
@@ -191,17 +233,22 @@ C_15 = to_obj(C_15)
 S_15, block_15 = create_nodes(C_15)
 
 B_15, S_15 = get_border(S_15)  # 边界点
-B_15 = sort_border(B_15, len(C_15))  # 按区域划分的二维边界点集合
+B_15_sorted = sort_border(B_15, len(C_15))  # 按区域划分的二维边界点集合
 
+# 2016 移动中继相关
 S_15_2016 = get_move_2016(S_15, block_15, 3)
-block_15_2018, d_cost_2018_1 = get_d_2018(B_15)  # 终于产生了第一个能用的实验数据呜呜呜o(╥﹏╥)o
+
+# 2018 圆桌协议相关
+block_15_2018, d_cost_2018_1 = get_d_2018(B_15_sorted)
 print(d_cost_2018_1)
+conn_block_2018, conn_path_2018 = get_min_path_2018(B_15)
+print(conn_block_2018)
 
 # 作图  ####################################
 gdf = make_mesh([0, 0, xm, ym], w, h)
 gdf.boundary.plot()
 draw_nodes(S_15)
-
+draw_line(conn_path_2018)
 plt.plot(sink['x'], sink['y'], 'rp')  # 绘制sink点
 plt.annotate('sink', xy=(sink['x'], sink['y']), xytext=(-20, 10),
              textcoords='offset points', fontsize=12, color='r')
