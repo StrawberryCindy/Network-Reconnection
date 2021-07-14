@@ -44,7 +44,7 @@ def to_obj(arr):
 
 
 # 迭代生成子点 #################
-def init(radius, center):
+def init(radius, center, xm, ym):
     x_center = center['x']
     y_center = center['y']
     while True:
@@ -55,7 +55,7 @@ def init(radius, center):
 
 
 # 判断边界点 ###################
-def get_border(nodes):
+def get_border(nodes, R):
     border_nodes = []  # 用来存放边界点们
     for index, node in enumerate(nodes):
         node['ngb'] = 0
@@ -103,7 +103,7 @@ def get_border(nodes):
     return border_nodes, nodes
 
 
-def create_nodes(c):  # c母点集，返回生成的所有点S， 以及block：按区域划分的二维点集
+def create_nodes(c,n,R, xm, ym):  # c母点集，返回生成的所有点S， 以及block：按区域划分的二维点集
     s = []
     block = [[0]*n for index in range(len(c))]
     for j, c_node in enumerate(c):
@@ -111,7 +111,7 @@ def create_nodes(c):  # c母点集，返回生成的所有点S， 以及block：
         while i < n:
             i = i+1
             new_node = {}
-            new_node['x'],new_node['y'] = init(R, c_node)
+            new_node['x'], new_node['y'] = init(R, c_node, xm, ym)
             new_node['block'] = j
             new_node['type'] = 'N'  # N为普通点，B为边界点
             new_node['movable'] = False   # 是否可移动
@@ -160,7 +160,7 @@ def sort_border(border, cl):
     return border2
 
 
-def desired_node_location(node_path):
+def desired_node_location(node_path, R):
     desired_node = []
     x = node_path[0]['x']
     y = node_path[0]['y']
@@ -185,7 +185,7 @@ def desired_node_location(node_path):
 
 
 # 关于2018圆桌协议算法的相关函数 ###################################
-def get_d_2018(border):   # blocks 按区域划分的二维点集
+def get_d_2018(border, R, xm, ym):   # blocks 按区域划分的二维点集
     # 获取所有边界点到达圆桌的距离
     d_all = 0
     for nodes in border:
@@ -201,7 +201,7 @@ def get_d_2018(border):   # blocks 按区域划分的二维点集
     return border, d_all
 
 
-def get_min_path_2018(border):
+def get_min_path_2018(border, R):
     b1 = []
     b2 = border[:]
     conn_path = []
@@ -257,14 +257,14 @@ def get_relay_2018(s, b, n):   # 识别Relay，即每个区域用于连接其他
     return s
 
 
-def desired_node_location_2018(n):  # 获取连接线路上的路径点
+def desired_node_location_2018(n, R):  # 获取连接线路上的路径点
     desired_node = []
     for node_path in n:
-        desired_node.extend(desired_node_location(node_path))
+        desired_node.extend(desired_node_location(node_path, R))
     return desired_node
 
 
-def get_replace_cost(desired_node, ba):   # 给每个路径上选定的位置，匹配一个node
+def get_replace_cost(desired_node, ba, R):   # 给每个路径上选定的位置，匹配一个node
     # ba：区域里的所有点（二维集合）
     badr = []  # ba delete relay
     cost2 = 0
@@ -319,11 +319,12 @@ ym = 1000   # 纵坐标长度
 sink = {'x': 0, 'y': 0}   # 基站定义
 sink['x'] = xm/2  # 基站横坐标
 sink['y'] = ym-50  # 基站纵坐标
-n = 16   # 每个区域的节点个数
+# n = 16   # 每个区域的节点个数
 R = 50  # 节点通信半径
 [w, h] = [50, 50]  # 网格长宽
 # END OF PARAMETERS ########################
 
+'''
 # 人为指定中心点 ###########################
 C_20 = [(50, 100), (100, 400), (50, 700), (30, 950), (300, 30), (340, 350), (260, 680), (280, 890),
         (500, 200), (500, 550), (590, 720), (570, 900), (730, 100), (600, 400), (780, 830),
@@ -335,20 +336,24 @@ C_15 = [(50, 100), (100, 400), (50, 700), (50, 900), (340, 340), (400, 660),
 C_15 = to_obj(C_15)
 
 # 当区域数为15时 ###########################
-S_15, block_15 = create_nodes(C_15)
+S_15, block_15 = create_nodes(C_15, 22, R, xm, ym)
 
-B_15, S_15 = get_border(S_15)  # 边界点
+B_15, S_15 = get_border(S_15, R)  # 边界点
 B_15_sorted = sort_border(B_15, len(C_15))  # 按区域划分的二维边界点集合
 
 
 # 2018 圆桌协议相关
-block_15_2018, d_cost_2018_1 = get_d_2018(B_15_sorted)
-conn_block_2018, conn_path_2018, conn_node_2018= get_min_path_2018(B_15)
+block_15_2018, d_cost_2018_1 = get_d_2018(B_15_sorted, R, xm, ym)
+conn_block_2018, conn_path_2018, conn_node_2018= get_min_path_2018(B_15, R)
 S_15_2018 = get_relay_2018(S_15, conn_block_2018, conn_node_2018)
-DN = desired_node_location_2018(conn_node_2018)
-d_cost_2018_2, move_path_2018 = get_replace_cost(DN, S_15)
+DN = desired_node_location_2018(conn_node_2018, R)
+d_cost_2018_2, move_path_2018 = get_replace_cost(DN, S_15, R)
 cost_2018 = d_cost_2018_1 + d_cost_2018_2
 print(d_cost_2018_1, d_cost_2018_2, cost_2018)
+
+S1 = S.extend(DN)
+S2 = destroy(S1, Dp)
+get_node_conn(S2)
 
 # 作图  ####################################
 gdf = make_mesh([0, 0, xm, ym], w, h)
@@ -362,3 +367,4 @@ plt.annotate('sink', xy=(sink['x'], sink['y']), xytext=(-20, 10),
              textcoords='offset points', fontsize=12, color='r')
 
 plt.show()
+'''

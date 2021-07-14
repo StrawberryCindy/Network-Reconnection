@@ -102,22 +102,29 @@ def get_border(nodes):
     return border_nodes, nodes
 
 
-def create_nodes(c):  # c母点集，返回生成的所有点S， 以及block：按区域划分的二维点集
+def create_nodes(c,n,R, xm, ym):  # c母点集，返回生成的所有点S， 以及block：按区域划分的二维点集
     s = []
-    block = [[0]*N for index in range(len(c))]
+    block1 = [[0]*n for index in range(len(c))]
+    block2 = [{} for index in range(len(c))]
     for j, c_node in enumerate(c):
         i = 0
-        while i < N:
+        c_node['block'] = j
+        block2[j]['nodes'] = []
+        block2[j]['nodes'].append(c_node)
+        s.append(c_node)
+        while i < n - 1:
             i = i+1
             new_node = {}
-            new_node['x'],new_node['y'] = init(R, c_node)
+            new_node['x'], new_node['y'] = init(R, c_node)
             new_node['block'] = j
             new_node['type'] = 'N'  # N为普通点，B为边界点
             new_node['movable'] = False   # 是否可移动
-            block[j][i - 1] = c_node
-            c_node = new_node
+            block1[j][i - 1] = c_node
+            block2[j]['nodes'].append(new_node)
+            block2[j]['id'] = j
             s.append(new_node)
-    return s, block
+            c_node = new_node
+    return s, block1, block2
 
 
 def draw_nodes(nodes):  # 画所有点
@@ -186,30 +193,59 @@ def to_grid(s, grid_scale):   # 将点的坐标标准化，用方格中心表示
     return sr_grid
 
 
-def get_distance_to_sink(n, cl):   # n为点集  该函数用于补充测出每个点的基本参数 D_sink
+def get_plumpness(blocks):
+    for block in blocks:
+        left = xm
+        right = 0
+        bottom = ym
+        top = 0
+        nodes = block['nodes']
+        for node in nodes:
+            if node['x'] < left:
+                left = node['x']
+            if node['x'] > right:
+                right = node['x']
+            if node['y'] < bottom:
+                bottom = node['y']
+            if node['y'] > top:
+                top = node['y']
+        xd = right - left + w
+        yd = top - bottom + h
+        l_max = max(xd, yd)
+        ideal_grid = (l_max/w)**2
+        block['plumpness'] = len(block['nodes']) / ideal_grid
+    return blocks
+
+
+def get_distance_to_sink(n, cl, blocks):   # n为点集  该函数用于补充测出每个点的基本参数 D_sink
     # D_sink 块距离sink的最近距离，每个块中统一
-    dsink_min = [10000000 for index in range(cl)]
+    dsink_min = [0 for index in range(cl)]
     dsink_temp = [0 for index in range(cl)]
     path = [[] for index in range(cl)]
     for index in range(cl):
-        for node in n:
+        for i, node in enumerate(n):
             if node['block'] == index:
                 dsink_temp[index] = (sink['x'] - node['x'])**2 + (sink['y']-node['y'])**2  # 距离sink的距离
-                if dsink_temp[index] < dsink_min[index]:
+                if dsink_min[index] == 0:
                     dsink_min[index] = dsink_temp[index]
                     path[index] = [node, sink]
+                else:
+                    if dsink_temp[index] < dsink_min[index]:
+                        dsink_min[index] = dsink_temp[index]
+                        path[index] = [node, sink]
         dsink_min[index] = np.sqrt(dsink_min[index])
         for node in n:
             if node['block'] == index:
                 node['D_sink'] = dsink_min[index]
-    return n, path
+                blocks[index]['D_sink'] = dsink_min[index]
+    return n, path, blocks
 
 
-def get_distance_to_seg(n, cl):  # n为点集  该函数用于补充测出每个块的基本参数 D_seg
+def get_distance_to_segm(n, cl, blocks):  # n为点集  该函数用于补充测出每个块的基本参数 D_seg
     # D_seg 块间距的最小值，每个块中统一
     n1 = []
     n2 = []
-    dseg = [0 for i in range(cl)]
+    dseg = [0]*cl
     conn_path = [[] for i in range(cl)]
     for index in range(cl):
         for node in n:
@@ -226,10 +262,11 @@ def get_distance_to_seg(n, cl):  # n为点集  该函数用于补充测出每个
         for node in n:
             if node['block'] == index:
                 node['D_seg'] = dseg[index]
-    return n, conn_path
+                blocks[index]['D_seg'] = dseg[index]
+    return n, conn_path, blocks
 
 
-def get_move_cost(s, cl):
+def get_move_cost(s, cl, blocks, conn_sink):
     f1 = [0 for i in range(cl)]
     cost = 0
     path = []
@@ -242,14 +279,14 @@ def get_move_cost(s, cl):
             b = node['block']
             if b == index:
                 f1[b] = a1*node['D_sink'] - a2*node['D_seg']
-                if f1[b] <= 0:
+                if f1[b] <= 0:   # 对于临近区域的处理
                     c_temp = node['D_sink']
-                    path.append(conn_sink[b])
                     if index not in block_to_sink:
                         cost = cost + c_temp
+                        path.append(conn_sink[b])
                         block_to_sink.append(index)
                     node_to_sink.append(node)
-                else:
+                else:       # 对于非临近区域的处理
                     # 不能简单地跟周围的块连接起来。。。。
                     if index not in block_not_to_sink:
                         block_not_to_sink.append(index)
@@ -265,26 +302,174 @@ def get_move_cost(s, cl):
         path.append(data[1])
         node_to_sink.extend(bi)
         cost = cost + data[2]
+    other_path, other_cost = path_on_plumpness(blocks, block_not_to_sink)
+    path.extend(other_path)
+    cost = cost + other_cost
     return cost, path
+
+
+def path_on_plumpness(blocks_pre, b):
+    # blocks：按 plumpness 排序的blocks对象  b：非临近区域的索引集合
+    # blocks.sort(key=lambda bl: bl['f2'], reverse=True)
+    # 将区域根据f2的大小排序，f2最大为最胖，其他区域选择
+    # print('plumpness最大的区域：', blocks[0]['id'])
+    blocks = []
+    path = []
+    cost = 0
+    blocks_to_sink = []
+    block_link = []
+    for block in blocks_pre:
+        if block['id'] in b:
+            blocks.append(block)
+        else:
+            blocks_to_sink.append(block)
+    for block in blocks:
+        other_blocks = blocks_pre[:]
+        other_blocks.remove(block)
+        f2_max = 0
+        for other_block in other_blocks:
+            data = get_min_path(block['nodes'], other_block['nodes'])
+            f2 = 1 + Beita1 * block['plumpness'] - Beita2 * data[2] / Dm
+            if f2 > f2_max:
+                f2_max = f2
+                path_temp = data[1]
+                blocklink_temp = data[0]
+                cost_temp = data[2]
+        path_reverse = [blocklink_temp[1], blocklink_temp[0]]
+        if path_reverse in block_link:
+            # 如果之前的块已经选择了这条通路
+            continue
+        else:
+            path.append(path_temp)
+            block_link.append(blocklink_temp)
+            cost = cost + cost_temp
+    return path, cost
 
 
 def get_min_path(b1, b2):  # b1, b2当前要判断的点集
     block = []
-    path = [[0,0],[0,0]]
-    d_min = 10000000
+    d_min = 0
     link = []
     for node in b1:
         x = node['x']
         y = node['y']
         for anode in b2:
             d = (anode['x'] - x) ** 2 + (anode['y'] - y) ** 2
-            if d < d_min:
+            if d_min == 0:
                 d_min = d
                 block = [node['block'], anode['block']]
-                path = [[anode['x'], anode['y']],[x,y]]
                 link = [node, anode]
+            else:
+                if d < d_min:
+                    d_min = d
+                    block = [node['block'], anode['block']]
+                    link = [node, anode]
     return block, link, np.sqrt(d_min)
 
+
+''' 还是当我这一下午啥也没写吧。。。。。
+def get_path_set(paths):
+    conn_to_sink = []
+    path_sets = []
+    for path in paths:
+        if path[1] == sink:
+            conn_to_sink.append(path)
+            path[1]['block'] = 'sink'
+    path_all = paths[:]
+    print('直连sink 的路线', len(conn_to_sink), conn_to_sink)
+    path_remain = []
+    while len(conn_to_sink) != 0:
+        path_set = ['sink']
+        block_connected = []
+        start = 'sink'
+        for path in path_all:
+            if path[1]['block'] == start or start:
+                start = True
+                if path[1]['block'] in path_set or path[0]['block'] in path_set:
+                    if path[1]['block'] in path_set:
+                        block = path[0]['block']
+                        if block not in block_connected:
+                            not_in_pr = True
+                            for pr in path_remain:
+                                if block in pr:
+                                    path_set.extend(pr)
+                                    block_connected.extend(pr)
+                                    path_remain.remove(pr)
+                                    not_in_pr = False
+                                    break
+                                else:
+                                    not_in_pr = True
+                            if not_in_pr:
+                                path_set.append(block)
+                                block_connected.append(block)
+                                path_all.remove(path)
+                    elif path[0]['block'] in path_set:
+                        block = path[1]['block']
+                        if block not in block_connected:
+                            not_in_pr = True
+                            for pr in path_remain:
+                                if block in pr:
+                                    path_set.extend(pr)
+                                    block_connected.extend(pr)
+                                    path_remain.remove(pr)
+                                    not_in_pr = False
+                                    break
+                                else:
+                                    not_in_pr = True
+                            if not_in_pr:
+                                path_set.append(block)
+                                block_connected.append(block)
+                                path_all.remove(path)
+                else:
+                    # 生成很多剩余点的集合，已遍历，但目前不属于任何一个区域，需要进一步区分
+                    exist = True
+                    print(path[0]['block'], path[1]['block'])
+                    if len(path_remain) != 0:
+                        for pr in path_remain:
+                            print(pr)
+                            if path[0]['block'] not in pr and path[1]['block'] not in pr:
+                                exist = False
+                                continue
+                            else:
+                                exist = True
+                                if path[0]['block'] not in pr:
+                                    pr.append(path[0]['block'])
+                                if path[1]['block'] not in pr:
+                                    pr.append(path[1]['block'])
+                                break
+                        if not exist:
+                            path_remain.append([path[0]['block'], path[1]['block']])
+                    else:
+                        path_remain.append([path[0]['block'], path[1]['block']])
+                    path_all.remove(path)
+                    print('path_remain', path_remain)
+            print('path:', path_set)
+        del conn_to_sink[0]
+        if len(path_set) != 1:
+            path_sets.append({'path': path_set, 'load': len(path_set)-1})
+            print('生成的path:', path_set)
+    return path_sets'''
+
+
+def can_conn(s, R, sink):
+    # 返回一个点集中仍可连接的点个数
+    sr = []   # 在临近点集内的点
+    sr.append(sink)
+    su = s[:]   # unsolve 未处理的点
+    while len(su) != 0:
+        sr.extend(near_node(sr, su, R))
+
+
+def near_node(n, su, R):
+    # 返回某个点附近的所有点
+    sr = []
+    for node in su:
+        d = (node['x']-n['0'])**2+(node['y']-n['y'])**2
+        if d < R**2:
+            sr.append(node)
+        else:
+            continue
+    return sr
 
 # PARAMETERS ##############################
 xm = 1000    # 横坐标长度
@@ -295,14 +480,21 @@ sink = {}
 sink['x'] = xm/2  # 基站横坐标
 sink['y'] = ym-50  # 基站纵坐标
 
-N = 16   # 每个区域的节点个数
+# N = 16   每个区域的节点个数
 R = 50  # 节点通信半径
 [w, h] = [25, 25]  # 网格画图长宽，实际宽度为25
 D = 2*xm/3   # 近距离块的划分
-a1 = 0.2   # 权重a1 ---> 健壮性和负载均衡
-a2 = 1-a1    # a2 ----> 连接成本
+Dm = 0.71*(xm - w)   # 理论上两格之间的最长距离
+
+a1 = 0.2              # 权重a1 ---> 连接成本
+a2 = 1-a1             # a2 ----> 健壮性和负载均衡
+Beita1 = 0.4          # 权重β1 ---> 健壮性
+Beita2 = 1 - Beita1   # β2 ---> 连接成本
+
+Dp = 0.1      # 随机破坏节点比例
 # END OF PARAMETERS ########################
 
+'''
 # 人为指定中心点 ###########################
 C_20 = [(50, 100), (100, 400), (50, 700), (30, 950), (300, 30), (340, 350), (260, 680), (280, 890),
         (500, 200), (500, 550), (590, 720), (570, 900), (730, 100), (600, 400), (780, 830),
@@ -314,19 +506,23 @@ C_15 = [(50, 100), (100, 400), (50, 700), (50, 900), (340, 340), (400, 660),
 C_15 = to_obj(C_15)
 
 # 当区域数为15时 ###########################
-S_15, block_15 = create_nodes(C_15)
-
 # 建立一个块的字典数组，主要关注块的操作，但同时还有点的操作，可以把点的数据存在块的某个属性中
+S_15, block_1, block_15 = create_nodes(C_15, 30, R, xm, ym)
+
 
 # 2021 移动小车网络：健壮性、负载均衡性
 S_15_grid = to_grid(S_15, w)
+for blo in block_15:
+    blo['nodes'] = to_grid(blo['nodes'], w)
 B_15, S_15 = get_border(S_15_grid)  # 边界点
-B_15_sorted = sort_border(B_15, len(C_15))  # 按区域划分的二维边界点集合
-S_15, conn_sink = get_distance_to_sink(S_15, len(C_15))
-S_15, conn_segm = get_distance_to_seg(S_15, len(C_15))
-cost_2021, conn_path_selected = get_move_cost(S_15, len(C_15))
+S_15, conn_sink, block_15 = get_distance_to_sink(S_15, len(C_15), block_15)
+S_15, conn_segm, block_15 = get_distance_to_segm(S_15, len(C_15), block_15)
+block_15 = get_plumpness(block_15)
+cost_2021, conn_path_selected = get_move_cost(S_15, len(C_15), block_15, conn_sink)
 print(cost_2021)
 
+# S2 = destroy(S1, Dp)
+# get_node_conn(S2)
 # 作图  ####################################
 gdf = make_mesh([0, 0, xm, ym], w, h)
 gdf.boundary.plot()
@@ -337,3 +533,5 @@ plt.annotate('sink', xy=(sink['x'], sink['y']), xytext=(-20, 10),
              textcoords='offset points', fontsize=12, color='r')
 
 plt.show()
+'''
+
