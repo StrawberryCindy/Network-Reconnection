@@ -88,14 +88,14 @@ C_15 = [(50, 100), (100, 400), (50, 700), (50, 900), (340, 340), (400, 660),
 C_15 = to_obj(C_15)
 
 
-def main(c, mn):
-    print(len(c), mn)
+def main(c, mn, Dp):
+    print(len(c), mn,'破坏比例：',Dp)
     # 当区域数为20时 ###########################
     S, block_1, block_2 = MobileRelay.create_nodes(c, mn, R, xm, ym)
 
+    '''
     # 2016 移动中继相关
     B_2016, S_2016 = mrsc.get_border(S, R)  # 边界点
-    B_sorted_2016 = mrsc.sort_border(B_2016, len(c))  # 按区域划分的二维边界点集合
     S_2016 = mrsc.get_move_2016(S, block_1, 9, mn)
     M = []
     for node in S_2016:
@@ -106,41 +106,52 @@ def main(c, mn):
         print('没有找到可行的路径')
     else:
         pass
-        print('MRSC Algorithm cost: ', cost_2016)
-
+        S1_2016 = S[:]
+        for dn in DN_2016:
+            S1_2016.append(dn)
+        S2_2016 = mrsc.destroy(S1_2016, Dp)
+        lcn_2016 =  mrsc.get_node_conn(S2_2016, R, sink)
+        exist_rate_2016 = lcn_2016/len(S1_2016)
+        print('MRSC Algorithm Existing Rate:', exist_rate_2016)
+    '''
     # 2018 圆桌协议相关
     B_2018, S_2018 = RoundTable.get_border(S, R)  # 边界点
     B_sorted_2018 = RoundTable.sort_border(B_2018, len(c))  # 按区域划分的二维边界点集合
     block_2018, d_cost_2018_1 = RoundTable.get_d_2018(B_sorted_2018, R, xm, ym)
     conn_block_2018, conn_path_2018, conn_node_2018 = RoundTable.get_min_path_2018(B_2018, R)
-    S_2018 = RoundTable.get_relay_2018(S, conn_block_2018, conn_node_2018)
+    S_2018 = RoundTable.get_relay_2018(S_2018, conn_block_2018, conn_node_2018)
     DN_2018 = RoundTable.desired_node_location_2018(conn_node_2018, R)
     d_cost_2018_2, move_path_2018 = RoundTable.get_replace_cost(DN_2018, S_2018, R)
-    cost_2018 = d_cost_2018_1 + d_cost_2018_2
-    print('RoundTable Algorithm cost：', cost_2018)
 
-
+    S1_2018 = S_2018[:]
+    for dn in DN_2018:
+        S1_2018.append(dn)
+    S2_2018 = RoundTable.destroy(S1_2018, Dp)
+    lcn_2018 = RoundTable.get_node_conn(S2_2018, R, sink)
+    exist_rate_2018 = lcn_2018 / len(S1_2018)
+    print('RoundTable Algorithm Existing Rate:', exist_rate_2018)
 
     # 2021 移动小车网络：健壮性、负载均衡性
-    S_grid = MobileRelay.to_grid(S, w)
+    S_grid = MobileRelay.to_grid(S, w, xm, ym)
     for blo in block_2:
-        blo['nodes'] = MobileRelay.to_grid(blo['nodes'], w)
-    B_20_2021, S_2021 = MobileRelay.get_border(S_grid)  # 边界点
-    S_2021, conn_sink_2021, block_2021 = MobileRelay.get_distance_to_sink(S_2021, len(c), block_2)
-    S_2021, conn_segm_2021, block_2021 = MobileRelay.get_distance_to_segm(S_2021, len(c), block_2021)
-    block_2021 = MobileRelay.get_plumpness(block_2021)
-    path_2021, cost_2021_1 = MobileRelay.step1_2021(block_2021, D, a1, a2, R)
+        blo['nodes'] = MobileRelay.to_grid(blo['nodes'], w,xm, ym)
+    B_2021, S_2021= MobileRelay.get_border(S_grid, R)  # 边界点
+    S_2021, conn_sink, block_2021 = MobileRelay.get_distance_to_sink(S_2021, len(c), block_2, sink)
+    S_2021, conn_segm, block_2021 = MobileRelay.get_distance_to_segm(S_2021, len(c), block_2021)
+    print(block_2021)
+    path_2021, cost_2021_1 = MobileRelay.step1_2021(block_2021, D, a1, a2, R, sink)
 
-    block_15 = MobileRelay.get_plumpness(block_2021)
+    block_15 = MobileRelay.get_plumpness(block_2021,xm, ym, w, h)
     path_2021_2, cost_2021_2 = MobileRelay.step2_2021(block_2021, D, Dm, Beita1, Beita2)
     path_2021.extend(path_2021_2)
     path_2021_3, cost_2021_3, path_set_2021 = MobileRelay.step3_2021(block_15)
     path_2021.append(path_2021_3)
 
-    cost_2021 = cost_2021_1 + cost_2021_2
-    print('Mobile Relay Algorithm cost：', cost_2021)
-
-    return cost_2016, cost_2018, cost_2021
+    S2_2021 = MobileRelay.destroy(S, Dp)
+    lcn_2021 = MobileRelay.get_node_conn(S2_2021, R, sink, path_2021)
+    exist_rate_2021 = lcn_2021 / len(S)
+    print('Mobile Relay Algorithm Existing Rate:', exist_rate_2021)
+    return exist_rate_2016, exist_rate_2018, exist_rate_2021
 
 '''
 # 画图 #########################
@@ -167,37 +178,56 @@ y3 = []
 for i, y in enumerate(y31):
     y3.append((y+y32[i])/2)
 '''
-'''
-main(C_15, 16)
-main(C_15, 18)
-main(C_15, 20)
-main(C_15, 22)
-main(C_15, 24)
-'''
+''''''
+x = [0.1, 0.15 ,0.2, 0.25, 0.3]
+y_temp = [[]*5 for i in range(3)]
+for i in range(3):
+    y_temp[i][0] = main(C_15, 18, 0.1)
+    y_temp[i][1] = main(C_15, 18, 0.15)
+    y_temp[i][2] = main(C_15, 18, 0.2)
+    y_temp[i][3] = main(C_15, 18, 0.25)
+    y_temp[i][4] = main(C_15, 18, 0.3)
+
+    '''  
+    main(C_15, 28, 0.1)
+    main(C_15, 28, 0.15)
+    main(C_15, 28, 0.2)
+    main(C_15, 28, 0.25)
+    main(C_15, 28, 0.3)
+    main(C_20, 18, 0.1)
+    main(C_20, 18, 0.15)
+    main(C_20, 18, 0.2)
+    main(C_20, 18, 0.25)
+    main(C_20, 18, 0.3)
+    
+    main(C_20, 28, 0.1)
+    main(C_20, 28, 0.15)
+    main(C_20, 28, 0.2)
+    main(C_20, 28, 0.25)
+    main(C_20, 28, 0.3)
+    '''
+y1 = []*5
+y2 = []*5
+y3 = []*5
+for i in range(5):
+    y1[i] = (y_temp[0][i][0] + y_temp[1][i][0] + y_temp[2][i][0])/3
+    y2[i] = (y_temp[0][i][1] + y_temp[1][i][1] + y_temp[2][i][1])/3
+    y3[i] = (y_temp[0][i][2] + y_temp[1][i][2] + y_temp[2][i][2])/3
 '''
 main(C_15, 26)
 main(C_15, 28)
 main(C_15, 30)
-
+'''
 plt.figure(1)
 plt.plot(x, y1, color='lightsalmon', label='MRSC', Marker='s')
 plt.plot(x, y2, color='cornflowerblue', label='RoundTable', linestyle='-', Marker='^')
 plt.plot(x, y3, color='mediumseagreen', label='Mobile Relay', linestyle='-', Marker='o')
 
-plt.title("Comparison of moving cost")
-plt.xlabel("Maximum number of nodes in each block")
-plt.ylabel("Moving cost")
-plt.axis([14, 32, 0, 7000])
+plt.title("Comparison of Existing Node Rate After Second Destroy")
+plt.xlabel("Destroy Rate")
+plt.ylabel("Existing Node Rate")
+plt.axis([0, 0.4, 0, 1])
 plt.grid(b=True, axis='y')  # 只显示y轴网格线
 plt.legend(loc="upper right")  # lower   right
-plt.show()'''
-
-main(C_20, 16)
-main(C_20, 18)
-main(C_20, 20)
-main(C_20, 22)
-main(C_20, 24)
-main(C_20, 26)
-main(C_20, 28)
-main(C_20, 30)
+plt.show()
 

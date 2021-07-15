@@ -313,41 +313,6 @@ def get_replace_cost(desired_node, ba, R):   # 给每个路径上选定的位置
     return cost2, path
 
 
-def destroy(s, dp):
-    sr = []
-    s1 = s[:]
-    delete = int(dp*len(s))  # 被破坏点的个数
-    CH = random.sample(range(0,len(s)-1), delete)  # 在规定范围中产生不同的随机数
-    for i in CH:
-        s1[i] = {'destroy': True}
-    for node in s1:
-        if 'destroy' in node.keys():
-            continue
-        else:
-            sr.append(node)
-    # print('原节点个数:', len(s),'删除节点个数：', delete,'剩余节点个数：', len(sr))
-    return sr
-
-
-def get_node_conn(s, R, sink):
-    # 返回一个点集中仍可连接的点个数
-    sr = []
-    sr.append(sink)
-    i = 0
-    for node in s:
-        node['block'] = -1
-    while i < len(sr):
-        aim = sr[i]
-        for index, node in enumerate(s):
-            if node not in sr:
-                d = (node['x']-aim['x'])**2 + (node['y']-aim['y'])**2
-                if d < R**2:
-                    sr.append(node)
-        i = i+1
-    sr.remove(sink)
-    return len(sr)
-
-
 # PARAMETERS ##############################
 xm = 1000    # 横坐标长度
 ym = 1000   # 纵坐标长度
@@ -357,10 +322,9 @@ sink['y'] = ym-50  # 基站纵坐标
 # n = 16   # 每个区域的节点个数
 R = 50  # 节点通信半径
 [w, h] = [50, 50]  # 网格长宽
-Dp = 0.1
 # END OF PARAMETERS ########################
 
-
+'''
 # 人为指定中心点 ###########################
 C_20 = [(50, 100), (100, 400), (50, 700), (30, 950), (300, 30), (340, 350), (260, 680), (280, 890),
         (500, 200), (500, 550), (590, 720), (570, 900), (730, 100), (600, 400), (780, 830),
@@ -372,7 +336,7 @@ C_15 = [(50, 100), (100, 400), (50, 700), (50, 900), (340, 340), (400, 660),
 C_15 = to_obj(C_15)
 
 # 当区域数为15时 ###########################
-S_15, block_15 = create_nodes(C_15, 18, R, xm, ym)
+S_15, block_15 = create_nodes(C_15, 22, R, xm, ym)
 
 B_15, S_15 = get_border(S_15, R)  # 边界点
 B_15_sorted = sort_border(B_15, len(C_15))  # 按区域划分的二维边界点集合
@@ -387,26 +351,14 @@ d_cost_2018_2, move_path_2018 = get_replace_cost(DN, S_15, R)
 cost_2018 = d_cost_2018_1 + d_cost_2018_2
 print(d_cost_2018_1, d_cost_2018_2, cost_2018)
 
-S1 = S_15[:]
-for dn in DN:
-    S1.append(dn)
-for path in move_path_2018:
-    if path[0] in S1:
-        S1.remove(path[0])
+S1 = S.extend(DN)
+S2 = destroy(S1, Dp)
+get_node_conn(S2)
 
-er = []
-for i in range(5):
-    S2 = destroy(S1, Dp)
-    lcn_2018 = get_node_conn(S2, R, sink)
-    exist_rate_2018 = lcn_2018/len(S1)
-    er.append(exist_rate_2018)
-er_average = (er[0]+er[1]+er[2]+er[3]+er[4])/5
-
-print('Round Table Algorithm Existing Rate:', er_average)
 # 作图  ####################################
 gdf = make_mesh([0, 0, xm, ym], w, h)
 gdf.boundary.plot()
-draw_nodes(S2)
+draw_nodes(S_15)
 draw_line(conn_path_2018)
 draw_nodes(DN)
 draw_arrow(move_path_2018)
@@ -415,4 +367,4 @@ plt.annotate('sink', xy=(sink['x'], sink['y']), xytext=(-20, 10),
              textcoords='offset points', fontsize=12, color='r')
 
 plt.show()
-
+'''

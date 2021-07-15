@@ -299,41 +299,6 @@ def desired_node_location(node_path, R):
     return desired_node
 
 
-def destroy(s, dp):
-    sr = []
-    s1 = s[:]
-    delete = int(dp*len(s))  # 被破坏点的个数
-    CH = random.sample(range(0,len(s)-1), delete)  # 在规定范围中产生不同的随机数
-    for i in CH:
-        s1[i] = {'destroy': True}
-    for node in s1:
-        if 'destroy' in node.keys():
-            continue
-        else:
-            sr.append(node)
-    # print('原节点个数:', len(s),'删除节点个数：', delete,'剩余节点个数：', len(sr))
-    return sr
-
-
-def get_node_conn(s, R, sink):
-    # 返回一个点集中仍可连接的点个数
-    sr = []
-    sr.append(sink)
-    i = 0
-    for node in s:
-        node['block'] = -1
-    while i < len(sr):
-        aim = sr[i]
-        for index, node in enumerate(s):
-            if node not in sr:
-                d = (node['x']-aim['x'])**2 + (node['y']-aim['y'])**2
-                if d < R**2:
-                    sr.append(node)
-        i = i+1
-    sr.remove(sink)
-    return len(sr)
-
-
 # PARAMETERS ##############################
 xm = 1000    # 横坐标长度
 ym = 1000   # 纵坐标长度
@@ -344,10 +309,10 @@ N = 16   # 每个区域的节点个数
 R = 50  # 节点通信半径
 [w, h] = [50, 50]  # 网格长宽
 
-Dp = 0.25      # 随机破坏节点比例
+Dp = 0.1      # 随机破坏节点比例
 # END OF PARAMETERS ########################
 
-''''''
+'''
 # 人为指定中心点 ###########################
 C_20 = [(50, 100), (100, 400), (50, 700), (30, 950), (300, 30), (340, 350), (260, 680), (280, 890),
         (500, 200), (500, 550), (590, 720), (570, 900), (730, 100), (600, 400), (780, 830),
@@ -360,10 +325,10 @@ C_15 = to_obj(C_15)
 
 
 # 当区域数为15时 ###########################
-S_15, block_15 = create_nodes(C_15, 18, R, xm, ym)
+S_15, block_15 = create_nodes(C_15, N, R, xm, ym)
 
 B_15, S_15 = get_border(S_15, R)  # 边界点
-B_15_sorted = sort_border(B_15, len(C_20))  # 按区域划分的二维边界点集合
+B_15_sorted = sort_border(B_15, len(C_15))  # 按区域划分的二维边界点集合
 
 # 2016 移动中继相关
 S_15_2016 = get_move_2016(S_15, block_15, 9, N)
@@ -372,23 +337,6 @@ for node in S_15_2016:
     if node['movable']:
         M_15.append(node)
 conn_path_2016, cost_2016, move_path_2016, DN = get_min_path_2016(B_15, M_15, R)
-
-S1 = S_15[:]
-for dn in DN:
-    S1.append(dn)
-for path in move_path_2016:
-    if path[0] in S1:
-        S1.remove(path[0])
-er = []
-for item in range(5):
-    S2 = destroy(S1, Dp)
-    lcn_2016 = get_node_conn(S2, R, sink)
-    exist_rate_2016 = lcn_2016/len(S2)
-    er.append(exist_rate_2016)
-
-er_average = (er[0]+er[1]+er[2]+er[3]+er[4])/5
-
-print('MRSC Algorithm Existing Rate:', er_average)
 if cost_2016 == 0:
     print('没有找到可行的路径')
 else:
@@ -410,4 +358,4 @@ else:
                  textcoords='offset points', fontsize=12, color='r')
 
     plt.show()
-
+'''
