@@ -198,7 +198,7 @@ def get_d_2018(border, R, xm, ym):   # blocks 按区域划分的二维点集
             else:
                 continue
         d_all = d_all + np.sqrt(d_min) - R   # 圆桌协议过程中移动的全路径
-    return border, d_all
+    return d_all
 
 
 def get_min_path_2018(border, R):
@@ -218,11 +218,12 @@ def get_min_path_2018(border, R):
             else:
                 pass
         data = get_min_path(b1, b2)
-        if (data[1][0][0] - data[1][1][0])**2 +(data[1][0][1] - data[1][1][1])**2 > R*R:
+        #if (data[1][0][0] - data[1][1][0])**2 +(data[1][0][1] - data[1][1][1])**2 > R*R:
+        if len(data[0]) != 0:
             conn_path.append(data[1])
             conn_block.append(data[0])
             conn_node.append(data[2])
-        conn_id = data[0][1]
+            conn_id = data[0][1]
     return 0
 
 
@@ -348,6 +349,84 @@ def get_node_conn(s, R, sink):
     return len(sr)
 
 
+def get_path_set(s, paths, sink, R):
+    # 得到从sink出发，除sink所在区域的路径，以区域为单位
+    start = -1
+    for node in s:
+        if (node['x'] - sink['x'])**2 + (node['y']-sink['y'])**2 < (2*R)**2:
+            for path in paths:
+                if node['block'] == path[0] or node['block'] == path[1]:
+                    start = node['block']
+    num = 0
+    # 处理一下，再往下找一个，再找不到两条路就不要了
+    for path in paths:
+        path.append('uncheck')
+        if path[0] == start or path[1] == start:
+            num = num + 1
+    if num > 1:
+        j = 0
+        path_set = [[start] for i in range(num)]
+        for p_start in paths:
+            if j == num:
+                break
+            else:
+                if p_start[0] == start:
+                    p_start[2] = 'check'
+                    path_set[j].append(p_start[1])
+                    i = 1
+                    while i<len(path_set[j]):
+                        aim = path_set[j][i]
+                        for path in paths:
+                            if path[0] == aim and path[2] == 'uncheck':
+                                path_set[j].append(path[1])
+                                path[2] = 'check'
+                            elif path[1] == aim and path[2] == 'uncheck':
+                                path_set[j].append(path[0])
+                                path[2] = 'check'
+                        i = i + 1
+                    j = j + 1
+                elif p_start[1] == start:
+                    p_start[2] = 'check'
+                    path_set[j].append(p_start[0])
+                    i = 1
+                    while i<len(path_set[j]):
+                        aim = path_set[j][i]
+                        for path in paths:
+                            if path[0] == aim and path[2] == 'uncheck':
+                                path_set[j].append(path[1])
+                                path[2] = 'check'
+                            elif path[1] == aim and path[2] == 'uncheck':
+                                path_set[j].append(path[0])
+                                path[2] = 'check'
+                        i = i + 1
+                    j = j + 1
+        for path in path_set:
+            del path[0]
+        print('Path Sets：',path_set)
+    else:
+        print('拓扑结构不合格')
+        path_set = []
+    return path_set
+
+
+def load_balance(path_set, blocks):
+    load = [0 for i in range(len(path_set))]
+    for index, path in enumerate(path_set):
+        for block_id in path:
+            load[index] = load[index] + len(blocks[block_id])
+    v = np.var(load)
+    print('The Load of Each Road:',load,'\nVariance:', v)
+    return load
+
+
+def network_lifetime(load, E, R):
+    load_max = max(load)  # 用于计算网络寿命
+    et = load_max*(50/pow(10, 9) + 10/pow(10, 12)*(R**2))
+    er = load_max*(50/pow(10, 9))
+    t = E/(et+er)
+    print('The lifetime of this network is:', int(t))
+
+
 # PARAMETERS ##############################
 xm = 1000    # 横坐标长度
 ym = 1000   # 纵坐标长度
@@ -357,10 +436,12 @@ sink['y'] = ym-50  # 基站纵坐标
 # n = 16   # 每个区域的节点个数
 R = 50  # 节点通信半径
 [w, h] = [50, 50]  # 网格长宽
-Dp = 0.1
+Dp = 0.5      # 随机破坏节点比例
+dg = 1     # 每个结点产生数据的速率 1bit/round (可以直接用结点数表示)
+E = 0.5    # 每个结点的满电能量
 # END OF PARAMETERS ########################
 
-
+''''''
 # 人为指定中心点 ###########################
 C_20 = [(50, 100), (100, 400), (50, 700), (30, 950), (300, 30), (340, 350), (260, 680), (280, 890),
         (500, 200), (500, 550), (590, 720), (570, 900), (730, 100), (600, 400), (780, 830),
@@ -379,14 +460,25 @@ B_15_sorted = sort_border(B_15, len(C_15))  # 按区域划分的二维边界点�
 
 
 # 2018 圆桌协议相关
-block_15_2018, d_cost_2018_1 = get_d_2018(B_15_sorted, R, xm, ym)
+print('Round Table Algorithm:')
+d_cost_2018_1 = get_d_2018(B_15_sorted, R, xm, ym)
 conn_block_2018, conn_path_2018, conn_node_2018= get_min_path_2018(B_15, R)
 S_15_2018 = get_relay_2018(S_15, conn_block_2018, conn_node_2018)
 DN = desired_node_location_2018(conn_node_2018, R)
 d_cost_2018_2, move_path_2018 = get_replace_cost(DN, S_15, R)
-cost_2018 = d_cost_2018_1 + d_cost_2018_2
-print(d_cost_2018_1, d_cost_2018_2, cost_2018)
+# cost_2018 = d_cost_2018_1 + d_cost_2018_2
+# print(d_cost_2018_1, d_cost_2018_2, cost_2018)
+block_2018 = [[] for i in range(len(C_15))]
+for node in S_15:
+    b_id = node['block']
+    block_2018[b_id].append(node)
+path_set_2018 = get_path_set(S_15_2018, conn_block_2018, sink,R)
+if len(path_set_2018) != 0:
+    load_2018 = load_balance(path_set_2018, block_2018)
+    network_lifetime(load_2018, E, R)
 
+
+'''# EXP2 ###################################
 S1 = S_15[:]
 for dn in DN:
     S1.append(dn)
@@ -403,10 +495,12 @@ for i in range(5):
 er_average = (er[0]+er[1]+er[2]+er[3]+er[4])/5
 
 print('Round Table Algorithm Existing Rate:', er_average)
+'''
+
 # 作图  ####################################
 gdf = make_mesh([0, 0, xm, ym], w, h)
 gdf.boundary.plot()
-draw_nodes(S2)
+draw_nodes(S_15_2018)
 draw_line(conn_path_2018)
 draw_nodes(DN)
 draw_arrow(move_path_2018)

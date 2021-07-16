@@ -419,7 +419,6 @@ def step3_2021(blocks):
     if len(path_temp) != 0:
         path = path_temp
         cost = d_min  # d_min其实就是连通代价
-    # print(path, cost)
     return path, cost, path_set
 
 
@@ -600,7 +599,46 @@ def get_node_conn(s, R, sink, paths):
             if len(sr) > max_len:
                 max_len = len(sr)
     '''
-    return len(sr)
+    return len(sr), sr
+
+
+def load_balance(paths, conn_path):
+    # 输入path, 和step3的连接路径conn_path
+    # 输出方差值
+    load = []
+    conn = [-1,-1]
+    sum = 0
+    if len(conn_path) != 0:
+        for path_set in paths:
+            for block in path_set['blocks']:
+                if conn_path[0] in block['nodes']:
+                    conn[0] = path_set['id']
+                    for b in path_set['blocks']:
+                        sum = len(b['nodes']) + sum
+                if conn_path[1] in block['nodes']:
+                    conn[1] = path_set['id']
+                    for b in path_set['blocks']:
+                        sum = len(b['nodes']) + sum
+        av_load = sum/len(conn)
+    for path_set in paths:
+        load_temp = 0
+        if path_set['id'] == conn[1] or path_set['id'] == conn[0]:
+            load.append(av_load)
+        else:
+            for block in path_set['blocks']:
+                load_temp = len(block['nodes']) + load_temp
+            load.append(load_temp)
+    v = np.var(load)
+    print('The Load of Each Road:', load, '\nVariance:', v)
+    return load
+
+
+def network_lifetime(load, E, R):
+    load_max = max(load)  # 用于计算网络寿命
+    et = load_max*(50/pow(10, 9) + 10/pow(10, 12)*(R**2))
+    er = load_max*(50/pow(10, 9))
+    t = E/(et+er)
+    print('The lifetime of this network is:', t)
 
 
 # PARAMETERS ##############################
@@ -623,7 +661,9 @@ a2 = 1-a1             # a2 ----> 健壮性和负载均衡
 Beita1 = 0.25          # 权重β1 ---> 健壮性
 Beita2 = 1 - Beita1   # β2 ---> 连接成本
 
-Dp = 0.3      # 随机破坏节点比例
+Dp = 0.5      # 随机破坏节点比例
+dg = 1     # 每个结点产生数据的速率 1bit/round (可以直接用结点数表示)
+E = 0.5    # 每个结点的满电能量
 # END OF PARAMETERS ########################
 
 
@@ -633,50 +673,62 @@ C_20 = [(50, 100), (100, 400), (50, 700), (30, 950), (300, 30), (340, 350), (260
         (950, 30), (840, 300), (870, 500), (980, 700), (950, 950)]
 C_20 = to_obj(C_20)
 
-C_15 = [(50, 100), (100, 400), (50, 700), (50, 900), (340, 340), (450, 960),
-        (300, 750), (500, 200), (590, 720), (730, 100), (650, 480), (780, 830), (890, 30), (870, 400), (900, 950)]
+C_15 = [(50, 100), (100, 400), (50, 700), (50, 900), (340, 340), (400, 660),
+        (500, 950), (500, 200), (590, 720), (730, 100), (650, 480), (780, 830), (890, 30), (870, 400), (900, 950)]
 C_15 = to_obj(C_15)
 
 
 # 当区域数为15时 ###########################
 # 建立一个块的字典数组，主要关注块的操作，但同时还有点的操作，可以把点的数据存在块的某个属性中
-S_15, block_1, block_15 = create_nodes(C_15, 18, R, xm, ym)
+S_15, block_1, block_15 = create_nodes(C_15, 30, R, xm, ym)
+S = S_15[:]
+print(len(S))
 
-
+print('Mobile Relay Algorithm:')
 # 2021 移动小车网络：健壮性、负载均衡性
-S_15_grid = to_grid(S_15, w,xm, ym)
-for blo in block_15:
-    blo['nodes'] = to_grid(blo['nodes'], w,xm, ym)
-B_15, S_15 = get_border(S_15_grid, R)  # 边界点
-S_15, conn_sink, block_15 = get_distance_to_sink(S_15, len(C_20), block_15, sink)
-S_15, conn_segm, block_15 = get_distance_to_segm(S_15, len(C_20), block_15)
+# S_15_grid = to_grid(S_15, w,xm, ym)
+# for blo in block_15:
+#   blo['nodes'] = to_grid(blo['nodes'], w,xm, ym)
+B_15, S = get_border(S, R)  # 边界点
+S, conn_sink, block_15 = get_distance_to_sink(S, len(C_20), block_15, sink)
+S, conn_segm, block_15 = get_distance_to_segm(S, len(C_20), block_15)
 path_2021, cost_2021_1 = step1_2021(block_15, D, a1, a2, R, sink)
-
+print(len(S))
 block_15 = get_plumpness(block_15, xm,ym, w, h)
 path_2021_2, cost_2021_2 = step2_2021(block_15, D, Dm, Beita1, Beita2)
 path_2021.extend(path_2021_2)
 path_2021_3, cost_2021_3, path_set_2021 = step3_2021(block_15)
-path_2021.append(path_2021_3)
+# 实验三
+load_2021 = load_balance(path_set_2021, path_2021_3)
+network_lifetime(load_2021, E, R)
+if len(path_2021_3) != 0:
+    path_2021.append(path_2021_3)
 cost_2021 = cost_2021_1 + cost_2021_2
-print('All cost:', cost_2021, 'Costs each step：', cost_2021_1, cost_2021_2,cost_2021_3)
+# print('All cost:', cost_2021, 'Costs each step：', cost_2021_1, cost_2021_2,cost_2021_3)
 
-er = []
-for i in range(5):
+'''EXP2
+sum = 0
+for i in range(100):
     S2 = destroy(S_15, Dp)
-    lcn_2021 = get_node_conn(S2, R, sink, path_2021)
+    lcn_2021, lcn = get_node_conn(S2, R, sink, path_2021)
     exist_rate_2021 = lcn_2021/len(S2)
-    er.append(exist_rate_2021)
-er_average = (er[0]+er[1]+er[2]+er[3]+er[4])/5
-
+    sum = sum + exist_rate_2021
+er_average = sum/100
 print('Mobile Relay Algorithm Existing Rate:', er_average)
+'''
 # 作图  ####################################
 gdf = make_mesh([0, 0, xm, ym], w, h)
 gdf.boundary.plot()
 draw_nodes(S_15)
+'''
+draw_nodes(S2)
+for i in lcn:
+    plt.plot(i['x'], i['y'], 'mv')
+'''
 draw_line(path_2021)
 plt.plot(sink['x'], sink['y'], 'rp')  # 绘制sink点
 plt.annotate('sink', xy=(sink['x'], sink['y']), xytext=(-20, 10),
              textcoords='offset points', fontsize=12, color='r')
 
 plt.show()
-
+''''''

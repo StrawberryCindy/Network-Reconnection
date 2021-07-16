@@ -120,21 +120,21 @@ def main(c, mn):
     print('RoundTable Algorithm cost：', cost_2018)
 
 
-
     # 2021 移动小车网络：健壮性、负载均衡性
     S_grid = MobileRelay.to_grid(S, w)
     for blo in block_2:
         blo['nodes'] = MobileRelay.to_grid(blo['nodes'], w)
+    print(block_2)
     B_20_2021, S_2021 = MobileRelay.get_border(S_grid)  # 边界点
-    S_2021, conn_sink_2021, block_2021 = MobileRelay.get_distance_to_sink(S_2021, len(c), block_2)
+    S_2021, conn_sink_2021, block_2021 = MobileRelay.get_distance_to_sink(S_2021, len(c), block_2, sink)
     S_2021, conn_segm_2021, block_2021 = MobileRelay.get_distance_to_segm(S_2021, len(c), block_2021)
-    block_2021 = MobileRelay.get_plumpness(block_2021)
+    block_2021 = MobileRelay.get_plumpness(block_2021, xm,ym, w, h)
     path_2021, cost_2021_1 = MobileRelay.step1_2021(block_2021, D, a1, a2, R)
 
-    block_15 = MobileRelay.get_plumpness(block_2021)
+    block_2021 = MobileRelay.get_plumpness(block_2021)
     path_2021_2, cost_2021_2 = MobileRelay.step2_2021(block_2021, D, Dm, Beita1, Beita2)
     path_2021.extend(path_2021_2)
-    path_2021_3, cost_2021_3, path_set_2021 = MobileRelay.step3_2021(block_15)
+    path_2021_3, cost_2021_3, path_set_2021 = MobileRelay.step3_2021(block_2021)
     path_2021.append(path_2021_3)
 
     cost_2021 = cost_2021_1 + cost_2021_2

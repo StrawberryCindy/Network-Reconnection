@@ -334,6 +334,87 @@ def get_node_conn(s, R, sink):
     return len(sr)
 
 
+def get_path_set(s, paths, sink, R):
+    # 得到从sink出发，除sink所在区域的路径，以区域为单位
+    conn_paths = []
+    for path in paths:
+        conn_paths.append([path[0]['block'], path[1]['block']])
+    start = -1
+    for node in s:
+        if (node['x'] - sink['x'])**2 + (node['y']-sink['y'])**2 < (2*R)**2:
+            for path in conn_paths:
+                if node['block'] == path[0] or node['block'] == path[1]:
+                    start = node['block']
+    num = 0
+    # 处理一下，再往下找一个，再找不到两条路就不要了
+    for path in conn_paths:
+        path.append('uncheck')
+        if path[0] == start or path[1] == start:
+            num = num + 1
+    print(conn_paths,num)
+    if num > 1:
+        j = 0
+        path_set = [[start] for i in range(num)]
+        for p_start in conn_paths:
+            if j == num:
+                break
+            else:
+                if p_start[0] == start:
+                    p_start[2] = 'check'
+                    path_set[j].append(p_start[1])
+                    i = 1
+                    while i<len(path_set[j]):
+                        aim = path_set[j][i]
+                        for path in conn_paths:
+                            if path[0] == aim and path[2] == 'uncheck':
+                                path_set[j].append(path[1])
+                                path[2] = 'check'
+                            elif path[1] == aim and path[2] == 'uncheck':
+                                path_set[j].append(path[0])
+                                path[2] = 'check'
+                        i = i + 1
+                    j = j + 1
+                elif p_start[1] == start:
+                    p_start[2] = 'check'
+                    path_set[j].append(p_start[0])
+                    i = 1
+                    while i<len(path_set[j]):
+                        aim = path_set[j][i]
+                        for path in conn_paths:
+                            if path[0] == aim and path[2] == 'uncheck':
+                                path_set[j].append(path[1])
+                                path[2] = 'check'
+                            elif path[1] == aim and path[2] == 'uncheck':
+                                path_set[j].append(path[0])
+                                path[2] = 'check'
+                        i = i + 1
+                    j = j + 1
+        for path in path_set:
+            del path[0]
+        print('Path Sets：',path_set)
+    else:
+        print('拓扑结构不合格')
+        path_set = []
+    return path_set
+
+
+def load_balance(path_set, blocks):
+    load = [0 for i in range(len(path_set))]
+    for index, path in enumerate(path_set):
+        for block_id in path:
+            load[index] = load[index] + len(blocks[block_id])
+    v = np.var(load)
+    print('The Load of Each Road:',load,'\nVariance:', v)
+
+
+def network_lifetime(load, E, R):
+    load_max = max(load)  # 用于计算网络寿命
+    et = load_max*(50/pow(10, 9) + 10/pow(10, 12)*(R**2))
+    er = load_max*(50/pow(10, 9))
+    t = E/(et+er)
+    print('The lifetime of this network is:', t)
+
+
 # PARAMETERS ##############################
 xm = 1000    # 横坐标长度
 ym = 1000   # 纵坐标长度
@@ -344,10 +425,10 @@ N = 16   # 每个区域的节点个数
 R = 50  # 节点通信半径
 [w, h] = [50, 50]  # 网格长宽
 
-Dp = 0.25      # 随机破坏节点比例
+Dp = 0.1      # 随机破坏节点比例
 # END OF PARAMETERS ########################
 
-''''''
+
 # 人为指定中心点 ###########################
 C_20 = [(50, 100), (100, 400), (50, 700), (30, 950), (300, 30), (340, 350), (260, 680), (280, 890),
         (500, 200), (500, 550), (590, 720), (570, 900), (730, 100), (600, 400), (780, 830),
@@ -360,19 +441,29 @@ C_15 = to_obj(C_15)
 
 
 # 当区域数为15时 ###########################
-S_15, block_15 = create_nodes(C_15, 18, R, xm, ym)
+S_15, block_15 = create_nodes(C_15, 20, R, xm, ym)
 
 B_15, S_15 = get_border(S_15, R)  # 边界点
 B_15_sorted = sort_border(B_15, len(C_20))  # 按区域划分的二维边界点集合
 
 # 2016 移动中继相关
+print('MRSC Algorithm:')
 S_15_2016 = get_move_2016(S_15, block_15, 9, N)
 M_15 = []
 for node in S_15_2016:
     if node['movable']:
         M_15.append(node)
 conn_path_2016, cost_2016, move_path_2016, DN = get_min_path_2016(B_15, M_15, R)
+block_2016 = [[] for i in range(len(C_15))]
+for node in S_15:
+    b_id = node['block']
+    block_2016[b_id].append(node)
+path_set_2016 = get_path_set(S_15_2016, conn_path_2016, sink, R)
+if len(path_set_2016) != 0:
+    load_2016 = load_balance(path_set_2016, block_2016)
+    network_lifetime(load_2016, E, R)
 
+'''
 S1 = S_15[:]
 for dn in DN:
     S1.append(dn)
@@ -389,11 +480,12 @@ for item in range(5):
 er_average = (er[0]+er[1]+er[2]+er[3]+er[4])/5
 
 print('MRSC Algorithm Existing Rate:', er_average)
+'''
 if cost_2016 == 0:
     print('没有找到可行的路径')
 else:
     pass
-    print(cost_2016)
+    # print(cost_2016)
     # S1 = S.extend(DN)
     # S2 = destroy(S1, Dp)
     # get_node_conn(S2)

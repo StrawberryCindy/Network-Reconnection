@@ -92,6 +92,7 @@ def main(c, mn, Dp):
     print(len(c), mn,'破坏比例：',Dp)
     # 当区域数为20时 ###########################
     S, block_1, block_2 = MobileRelay.create_nodes(c, mn, R, xm, ym)
+    print(block_2)
 
     '''
     # 2016 移动中继相关
@@ -135,16 +136,16 @@ def main(c, mn, Dp):
     S_grid = MobileRelay.to_grid(S, w, xm, ym)
     for blo in block_2:
         blo['nodes'] = MobileRelay.to_grid(blo['nodes'], w,xm, ym)
-    B_2021, S_2021= MobileRelay.get_border(S_grid, R)  # 边界点
+    B_2021, S_2021 = MobileRelay.get_border(S_grid, R)  # 边界点
     S_2021, conn_sink, block_2021 = MobileRelay.get_distance_to_sink(S_2021, len(c), block_2, sink)
     S_2021, conn_segm, block_2021 = MobileRelay.get_distance_to_segm(S_2021, len(c), block_2021)
     print(block_2021)
     path_2021, cost_2021_1 = MobileRelay.step1_2021(block_2021, D, a1, a2, R, sink)
 
-    block_15 = MobileRelay.get_plumpness(block_2021,xm, ym, w, h)
+    block_2021 = MobileRelay.get_plumpness(block_2021,xm, ym, w, h)
     path_2021_2, cost_2021_2 = MobileRelay.step2_2021(block_2021, D, Dm, Beita1, Beita2)
     path_2021.extend(path_2021_2)
-    path_2021_3, cost_2021_3, path_set_2021 = MobileRelay.step3_2021(block_15)
+    path_2021_3, cost_2021_3, path_set_2021 = MobileRelay.step3_2021(block_2021)
     path_2021.append(path_2021_3)
 
     S2_2021 = MobileRelay.destroy(S, Dp)
