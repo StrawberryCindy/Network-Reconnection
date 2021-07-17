@@ -453,10 +453,10 @@ C_15 = [(50, 100), (100, 400), (50, 700), (50, 900), (340, 340), (400, 660),
 C_15 = to_obj(C_15)
 
 # 当区域数为15时 ###########################
-S_15, block_15 = create_nodes(C_15, 18, R, xm, ym)
+S_15, block_15 = create_nodes(C_20, 24, R, xm, ym)
 
 B_15, S_15 = get_border(S_15, R)  # 边界点
-B_15_sorted = sort_border(B_15, len(C_15))  # 按区域划分的二维边界点集合
+B_15_sorted = sort_border(B_15, len(C_20))  # 按区域划分的二维边界点集合
 
 
 # 2018 圆桌协议相关
@@ -468,7 +468,7 @@ DN = desired_node_location_2018(conn_node_2018, R)
 d_cost_2018_2, move_path_2018 = get_replace_cost(DN, S_15, R)
 # cost_2018 = d_cost_2018_1 + d_cost_2018_2
 # print(d_cost_2018_1, d_cost_2018_2, cost_2018)
-block_2018 = [[] for i in range(len(C_15))]
+block_2018 = [[] for i in range(len(C_20))]
 for node in S_15:
     b_id = node['block']
     block_2018[b_id].append(node)

@@ -405,6 +405,7 @@ def load_balance(path_set, blocks):
             load[index] = load[index] + len(blocks[block_id])
     v = np.var(load)
     print('The Load of Each Road:',load,'\nVariance:', v)
+    return load
 
 
 def network_lifetime(load, E, R):
@@ -426,6 +427,7 @@ R = 50  # 节点通信半径
 [w, h] = [50, 50]  # 网格长宽
 
 Dp = 0.1      # 随机破坏节点比例
+E = 0.5
 # END OF PARAMETERS ########################
 
 
@@ -441,7 +443,7 @@ C_15 = to_obj(C_15)
 
 
 # 当区域数为15时 ###########################
-S_15, block_15 = create_nodes(C_15, 20, R, xm, ym)
+S_15, block_15 = create_nodes(C_20, 24, R, xm, ym)
 
 B_15, S_15 = get_border(S_15, R)  # 边界点
 B_15_sorted = sort_border(B_15, len(C_20))  # 按区域划分的二维边界点集合
@@ -454,7 +456,7 @@ for node in S_15_2016:
     if node['movable']:
         M_15.append(node)
 conn_path_2016, cost_2016, move_path_2016, DN = get_min_path_2016(B_15, M_15, R)
-block_2016 = [[] for i in range(len(C_15))]
+block_2016 = [[] for i in range(len(C_20))]
 for node in S_15:
     b_id = node['block']
     block_2016[b_id].append(node)

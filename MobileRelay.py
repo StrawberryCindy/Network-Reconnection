@@ -680,7 +680,7 @@ C_15 = to_obj(C_15)
 
 # 当区域数为15时 ###########################
 # 建立一个块的字典数组，主要关注块的操作，但同时还有点的操作，可以把点的数据存在块的某个属性中
-S_15, block_1, block_15 = create_nodes(C_15, 30, R, xm, ym)
+S_15, block_1, block_15 = create_nodes(C_20, 30, R, xm, ym)
 S = S_15[:]
 print(len(S))
 
