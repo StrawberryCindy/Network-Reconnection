@@ -436,7 +436,7 @@ sink['y'] = ym-50  # 基站纵坐标
 # n = 16   # 每个区域的节点个数
 R = 50  # 节点通信半径
 [w, h] = [50, 50]  # 网格长宽
-Dp = 0.5      # 随机破坏节点比例
+# Dp = 0.5     # 随机破坏节点比例
 dg = 1     # 每个结点产生数据的速率 1bit/round (可以直接用结点数表示)
 E = 0.5    # 每个结点的满电能量
 # END OF PARAMETERS ########################
@@ -452,61 +452,105 @@ C_15 = [(50, 100), (100, 400), (50, 700), (50, 900), (340, 340), (400, 660),
         (500, 950), (500, 200), (590, 720), (730, 100), (650, 480), (780, 830), (890, 30), (870, 400), (900, 950)]
 C_15 = to_obj(C_15)
 
-# 当区域数为15时 ###########################
-S_15, block_15 = create_nodes(C_20, 24, R, xm, ym)
 
-B_15, S_15 = get_border(S_15, R)  # 边界点
-B_15_sorted = sort_border(B_15, len(C_20))  # 按区域划分的二维边界点集合
+def main(c, dm, Dp):
+    # 当区域数为15时 ###########################
+    S_15, block_15 = create_nodes(c, dm, R, xm, ym)
 
-
-# 2018 圆桌协议相关
-print('Round Table Algorithm:')
-d_cost_2018_1 = get_d_2018(B_15_sorted, R, xm, ym)
-conn_block_2018, conn_path_2018, conn_node_2018= get_min_path_2018(B_15, R)
-S_15_2018 = get_relay_2018(S_15, conn_block_2018, conn_node_2018)
-DN = desired_node_location_2018(conn_node_2018, R)
-d_cost_2018_2, move_path_2018 = get_replace_cost(DN, S_15, R)
-# cost_2018 = d_cost_2018_1 + d_cost_2018_2
-# print(d_cost_2018_1, d_cost_2018_2, cost_2018)
-block_2018 = [[] for i in range(len(C_20))]
-for node in S_15:
-    b_id = node['block']
-    block_2018[b_id].append(node)
-path_set_2018 = get_path_set(S_15_2018, conn_block_2018, sink,R)
-if len(path_set_2018) != 0:
-    load_2018 = load_balance(path_set_2018, block_2018)
-    network_lifetime(load_2018, E, R)
+    B_15, S_15 = get_border(S_15, R)  # 边界点
+    B_15_sorted = sort_border(B_15, len(c))  # 按区域划分的二维边界点集合
 
 
-'''# EXP2 ###################################
-S1 = S_15[:]
-for dn in DN:
-    S1.append(dn)
-for path in move_path_2018:
-    if path[0] in S1:
-        S1.remove(path[0])
+    # 2018 圆桌协议相关
+    print('Round Table Algorithm:')
+    print('分区数量：',len(c),'节点破坏比例：', Dp)
+    d_cost_2018_1 = get_d_2018(B_15_sorted, R, xm, ym)
+    conn_block_2018, conn_path_2018, conn_node_2018= get_min_path_2018(B_15, R)
+    S_15_2018 = get_relay_2018(S_15, conn_block_2018, conn_node_2018)
+    DN = desired_node_location_2018(conn_node_2018, R)
+    d_cost_2018_2, move_path_2018 = get_replace_cost(DN, S_15, R)
+    # cost_2018 = d_cost_2018_1 + d_cost_2018_2
+    # print(d_cost_2018_1, d_cost_2018_2, cost_2018)
+    block_2018 = [[] for i in range(len(c))]
+    '''
+    for node in S_15:
+        b_id = node['block']
+        block_2018[b_id].append(node)
+    path_set_2018 = get_path_set(S_15_2018, conn_block_2018, sink,R)
+    if len(path_set_2018) != 0:
+        load_2018 = load_balance(path_set_2018, block_2018)
+        network_lifetime(load_2018, E, R)
+    
+    
+    '''
+    # EXP2 ###################################
+    S1 = S_15[:]
+    for dn in DN:
+        S1.append(dn)
+    for path in move_path_2018:
+        if path[0] in S1:
+            S1.remove(path[0])
 
-er = []
-for i in range(5):
-    S2 = destroy(S1, Dp)
-    lcn_2018 = get_node_conn(S2, R, sink)
-    exist_rate_2018 = lcn_2018/len(S1)
-    er.append(exist_rate_2018)
-er_average = (er[0]+er[1]+er[2]+er[3]+er[4])/5
+    er = []
+    sum = 0
+    for i in range(100):
+        S2 = destroy(S1, Dp)
+        lcn_2018 = get_node_conn(S2, R, sink)
+        exist_rate_2018 = lcn_2018/len(S1)
+        sum= sum +exist_rate_2018
+    er_average = sum/100
 
-print('Round Table Algorithm Existing Rate:', er_average)
+    print('The percentage of alive Rate:', er_average)
+
+    '''
+    # 作图  ####################################
+    gdf = make_mesh([0, 0, xm, ym], w, h)
+    gdf.boundary.plot()
+    draw_nodes(S_15_2018)
+    draw_line(conn_path_2018)
+    draw_nodes(DN)
+    draw_arrow(move_path_2018)
+    plt.plot(sink['x'], sink['y'], 'rp')  # 绘制sink点
+    plt.annotate('sink', xy=(sink['x'], sink['y']), xytext=(-20, 10),
+                 textcoords='offset points', fontsize=12, color='r')
+    
+    plt.show()
+    '''
+
 '''
+main(C_15, 18,0.1)
+main(C_15, 18,0.15)
+main(C_15, 18,0.2)
+main(C_15, 18,0.25)
+main(C_15, 18, 0.3)
+main(C_15, 18,0.35)
+main(C_15, 18, 0.4)
 
-# 作图  ####################################
-gdf = make_mesh([0, 0, xm, ym], w, h)
-gdf.boundary.plot()
-draw_nodes(S_15_2018)
-draw_line(conn_path_2018)
-draw_nodes(DN)
-draw_arrow(move_path_2018)
-plt.plot(sink['x'], sink['y'], 'rp')  # 绘制sink点
-plt.annotate('sink', xy=(sink['x'], sink['y']), xytext=(-20, 10),
-             textcoords='offset points', fontsize=12, color='r')
+main(C_15, 28,0.1)
+main(C_15, 28,0.15)
+main(C_15, 28,0.2)
+main(C_15, 28,0.25)
+main(C_15, 28, 0.3)
+main(C_15, 28,0.35)
+main(C_15, 28,0.4)
 
-plt.show()
+
+main(C_20, 18,0.1)
+main(C_20, 18,0.15)
+main(C_20, 18,0.2)
+main(C_20, 18,0.25)
+main(C_20, 18, 0.3)
+main(C_20, 18,0.35)
+main(C_20, 18,0.4)
+'''
+'''
+main(C_20, 28,0.1)
+main(C_20, 28,0.15)
+main(C_20, 28,0.2)
+main(C_20, 28,0.25)
+main(C_20, 28, 0.3)
+main(C_20, 28,0.35)'''
+main(C_20, 28,0.4)
+
+
 

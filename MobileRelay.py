@@ -677,58 +677,100 @@ C_15 = [(50, 100), (100, 400), (50, 700), (50, 900), (340, 340), (400, 660),
         (500, 950), (500, 200), (590, 720), (730, 100), (650, 480), (780, 830), (890, 30), (870, 400), (900, 950)]
 C_15 = to_obj(C_15)
 
+def main(c, bm, Dp):
+    # 当区域数为15时 ###########################
+    # 建立一个块的字典数组，主要关注块的操作，但同时还有点的操作，可以把点的数据存在块的某个属性中
+    S_15, block_1, block_15 = create_nodes(c, bm, R, xm, ym)
+    S = S_15[:]
 
-# 当区域数为15时 ###########################
-# 建立一个块的字典数组，主要关注块的操作，但同时还有点的操作，可以把点的数据存在块的某个属性中
-S_15, block_1, block_15 = create_nodes(C_20, 30, R, xm, ym)
-S = S_15[:]
-print(len(S))
+    print('Mobile Relay Algorithm:')
+    print('分区数量：',len(c),'节点破坏比例：', Dp)
+    # 2021 移动小车网络：健壮性、负载均衡性
+    # S_15_grid = to_grid(S_15, w,xm, ym)
+    # for blo in block_15:
+    #   blo['nodes'] = to_grid(blo['nodes'], w,xm, ym)
+    B_15, S = get_border(S, R)  # 边界点
+    S, conn_sink, block_15 = get_distance_to_sink(S, len(c), block_15, sink)
+    S, conn_segm, block_15 = get_distance_to_segm(S, len(c), block_15)
+    path_2021, cost_2021_1 = step1_2021(block_15, D, a1, a2, R, sink)
+    # print(len(S))
+    block_15 = get_plumpness(block_15, xm,ym, w, h)
+    path_2021_2, cost_2021_2 = step2_2021(block_15, D, Dm, Beita1, Beita2)
+    path_2021.extend(path_2021_2)
+    path_2021_3, cost_2021_3, path_set_2021 = step3_2021(block_15)
+    '''
+    # 实验三、四
+    load_2021 = load_balance(path_set_2021, path_2021_3)
+    network_lifetime(load_2021, E, R)
+    if len(path_2021_3) != 0:
+        path_2021.append(path_2021_3)
+    cost_2021 = cost_2021_1 + cost_2021_2
+    # print('All cost:', cost_2021, 'Costs each step：', cost_2021_1, cost_2021_2,cost_2021_3)
+    
+    '''
+    # EXP2
+    sum = 0
+    for i in range(100):
+        S2 = destroy(S_15, Dp)
+        lcn_2021, lcn = get_node_conn(S2, R, sink, path_2021)
+        exist_rate_2021 = lcn_2021/len(S2)
+        sum = sum + exist_rate_2021
+    er_average = sum/100
+    print('The percentage of alive nodes:', er_average)
 
-print('Mobile Relay Algorithm:')
-# 2021 移动小车网络：健壮性、负载均衡性
-# S_15_grid = to_grid(S_15, w,xm, ym)
-# for blo in block_15:
-#   blo['nodes'] = to_grid(blo['nodes'], w,xm, ym)
-B_15, S = get_border(S, R)  # 边界点
-S, conn_sink, block_15 = get_distance_to_sink(S, len(C_20), block_15, sink)
-S, conn_segm, block_15 = get_distance_to_segm(S, len(C_20), block_15)
-path_2021, cost_2021_1 = step1_2021(block_15, D, a1, a2, R, sink)
-print(len(S))
-block_15 = get_plumpness(block_15, xm,ym, w, h)
-path_2021_2, cost_2021_2 = step2_2021(block_15, D, Dm, Beita1, Beita2)
-path_2021.extend(path_2021_2)
-path_2021_3, cost_2021_3, path_set_2021 = step3_2021(block_15)
-# 实验三
-load_2021 = load_balance(path_set_2021, path_2021_3)
-network_lifetime(load_2021, E, R)
-if len(path_2021_3) != 0:
-    path_2021.append(path_2021_3)
-cost_2021 = cost_2021_1 + cost_2021_2
-# print('All cost:', cost_2021, 'Costs each step：', cost_2021_1, cost_2021_2,cost_2021_3)
+    '''
+    # 作图  ####################################
+    gdf = make_mesh([0, 0, xm, ym], w, h)
+    gdf.boundary.plot()
+    draw_nodes(S_15)
+    ''''''
+    draw_nodes(S2)
+    for i in lcn:
+        plt.plot(i['x'], i['y'], 'mv')'''
+    '''
+    draw_line(path_2021)
+    plt.plot(sink['x'], sink['y'], 'rp')  # 绘制sink点
+    plt.annotate('sink', xy=(sink['x'], sink['y']), xytext=(-20, 10),
+                 textcoords='offset points', fontsize=12, color='r')
+    
+    plt.show()
+    '''
 
-'''EXP2
-sum = 0
-for i in range(100):
-    S2 = destroy(S_15, Dp)
-    lcn_2021, lcn = get_node_conn(S2, R, sink, path_2021)
-    exist_rate_2021 = lcn_2021/len(S2)
-    sum = sum + exist_rate_2021
-er_average = sum/100
-print('Mobile Relay Algorithm Existing Rate:', er_average)
 '''
-# 作图  ####################################
-gdf = make_mesh([0, 0, xm, ym], w, h)
-gdf.boundary.plot()
-draw_nodes(S_15)
-'''
-draw_nodes(S2)
-for i in lcn:
-    plt.plot(i['x'], i['y'], 'mv')
-'''
-draw_line(path_2021)
-plt.plot(sink['x'], sink['y'], 'rp')  # 绘制sink点
-plt.annotate('sink', xy=(sink['x'], sink['y']), xytext=(-20, 10),
-             textcoords='offset points', fontsize=12, color='r')
+main(C_15, 18,0.1)
+main(C_15, 18,0.15)
+main(C_15, 18,0.2)
+main(C_15, 18,0.25)
+main(C_15, 18, 0.3)
+main(C_15, 18,0.35)
+main(C_15, 18, 0.4)
 
-plt.show()
-''''''
+
+main(C_15, 28,0.1)
+main(C_15, 28,0.15)
+main(C_15, 28,0.2)
+main(C_15, 28,0.25)
+main(C_15, 28, 0.3)
+main(C_15, 28,0.35)
+main(C_15, 28,0.4)
+
+main(C_20, 18,0.1)
+main(C_20, 18,0.15)
+main(C_20, 18,0.2)
+main(C_20, 18,0.25)
+main(C_20, 18, 0.3)'''
+main(C_20, 18,0.35)
+main(C_20, 18,0.4)
+'''
+
+main(C_20, 28,0.1)
+main(C_20, 28,0.15)
+main(C_20, 28,0.2)
+main(C_20, 28,0.25)
+main(C_20, 28, 0.3)
+main(C_20, 28,0.35)
+main(C_20, 28,0.4)
+'''
+
+
+

@@ -441,67 +441,111 @@ C_15 = [(50, 100), (100, 400), (50, 700), (50, 900), (340, 340), (400, 660),
         (500, 950), (500, 200), (590, 720), (730, 100), (650, 480), (780, 830), (890, 30), (870, 400), (900, 950)]
 C_15 = to_obj(C_15)
 
+def main(c, bm, Dp):
+    # 当区域数为15时 ###########################
+    S_15, block_15 = create_nodes(c, bm, R, xm, ym)
 
-# 当区域数为15时 ###########################
-S_15, block_15 = create_nodes(C_20, 24, R, xm, ym)
+    B_15, S_15 = get_border(S_15, R)  # 边界点
+    B_15_sorted = sort_border(B_15, len(c))  # 按区域划分的二维边界点集合
 
-B_15, S_15 = get_border(S_15, R)  # 边界点
-B_15_sorted = sort_border(B_15, len(C_20))  # 按区域划分的二维边界点集合
+    # 2016 移动中继相关
+    print('MRSC Algorithm:')
+    print('分区数量：',len(c),'节点破坏比例：', Dp)
+    S_15_2016 = get_move_2016(S_15, block_15, 9, N)
+    M_15 = []
+    for node in S_15_2016:
+        if node['movable']:
+            M_15.append(node)
+    conn_path_2016, cost_2016, move_path_2016, DN = get_min_path_2016(B_15, M_15, R)
 
-# 2016 移动中继相关
-print('MRSC Algorithm:')
-S_15_2016 = get_move_2016(S_15, block_15, 9, N)
-M_15 = []
-for node in S_15_2016:
-    if node['movable']:
-        M_15.append(node)
-conn_path_2016, cost_2016, move_path_2016, DN = get_min_path_2016(B_15, M_15, R)
-block_2016 = [[] for i in range(len(C_20))]
-for node in S_15:
-    b_id = node['block']
-    block_2016[b_id].append(node)
-path_set_2016 = get_path_set(S_15_2016, conn_path_2016, sink, R)
-if len(path_set_2016) != 0:
-    load_2016 = load_balance(path_set_2016, block_2016)
-    network_lifetime(load_2016, E, R)
+    '''
+    block_2016 = [[] for i in range(len(C_20))]
+    for node in S_15:
+        b_id = node['block']
+        block_2016[b_id].append(node)
+    path_set_2016 = get_path_set(S_15_2016, conn_path_2016, sink, R)
+    if len(path_set_2016) != 0:
+        load_2016 = load_balance(path_set_2016, block_2016)
+        network_lifetime(load_2016, E, R)
+    
+    '''
+    S1 = S_15_2016[:]
+    for dn in DN:
+        S1.append(dn)
+    for paths in move_path_2016:
+        for path in paths:
+            if path[0] in S1:
+                S1.remove(path[0])
+    sum = 0
+    for i in range(100):
+        S2 = destroy(S1, Dp)
+        lcn_2016 = get_node_conn(S2, R, sink)
+        exist_rate_2016 = lcn_2016 / len(S1)
+        sum = sum + exist_rate_2016
+    er_average = sum / 100
+    print('The percentage of alive Rate:', er_average)
+
+    if cost_2016 == 0:
+        print('没有找到可行的路径')
+    else:
+        pass
+        # print(cost_2016)
+        # S1 = S.extend(DN)
+        # S2 = destroy(S1, Dp)
+        # get_node_conn(S2)
+        '''
+        # 作图  ####################################
+        gdf = make_mesh([0, 0, xm, ym], w, h)
+        gdf.boundary.plot()
+        draw_nodes(S_15)
+        draw_line(conn_path_2016)
+        draw_nodes(DN)
+        for mp in move_path_2016:
+            draw_arrow(mp)
+        plt.plot(sink['x'], sink['y'], 'rp')  # 绘制sink点
+        plt.annotate('sink', xy=(sink['x'], sink['y']), xytext=(-20, 10),
+                     textcoords='offset points', fontsize=12, color='r')
+    
+        plt.show()
+        '''
+
 
 '''
-S1 = S_15[:]
-for dn in DN:
-    S1.append(dn)
-for path in move_path_2016:
-    if path[0] in S1:
-        S1.remove(path[0])
-er = []
-for item in range(5):
-    S2 = destroy(S1, Dp)
-    lcn_2016 = get_node_conn(S2, R, sink)
-    exist_rate_2016 = lcn_2016/len(S2)
-    er.append(exist_rate_2016)
+main(C_15, 18,0.1)
+main(C_15, 18,0.15)
+main(C_15, 18,0.2)
+main(C_15, 18,0.25)
+main(C_15, 18, 0.3)
+main(C_15, 18,0.35)
+main(C_15, 18, 0.4)
 
-er_average = (er[0]+er[1]+er[2]+er[3]+er[4])/5
 
-print('MRSC Algorithm Existing Rate:', er_average)
+main(C_15, 28,0.1)
+main(C_15, 28,0.15)
+
+main(C_15, 28,0.2)
+main(C_15, 28,0.25)
+main(C_15, 28, 0.3)
+main(C_15, 28,0.35)
+main(C_15, 28, 0.4)
+
+main(C_20, 18,0.1)
+main(C_20, 18,0.15)
+main(C_20, 18,0.2)
+main(C_20, 18,0.25)
+main(C_20, 18, 0.3)'''
+main(C_20, 18,0.35)
+main(C_20, 18,0.4)
 '''
-if cost_2016 == 0:
-    print('没有找到可行的路径')
-else:
-    pass
-    # print(cost_2016)
-    # S1 = S.extend(DN)
-    # S2 = destroy(S1, Dp)
-    # get_node_conn(S2)
-    # 作图  ####################################
-    gdf = make_mesh([0, 0, xm, ym], w, h)
-    gdf.boundary.plot()
-    draw_nodes(S_15)
-    draw_line(conn_path_2016)
-    draw_nodes(DN)
-    for mp in move_path_2016:
-        draw_arrow(mp)
-    plt.plot(sink['x'], sink['y'], 'rp')  # 绘制sink点
-    plt.annotate('sink', xy=(sink['x'], sink['y']), xytext=(-20, 10),
-                 textcoords='offset points', fontsize=12, color='r')
 
-    plt.show()
+main(C_20, 28,0.1)
+main(C_20, 28,0.15)
+main(C_20, 28,0.2)
+main(C_20, 28,0.25)
+main(C_20, 28, 0.3)
+main(C_20, 28,0.35)
+main(C_20, 28,0.4)
+'''
+
+
 
